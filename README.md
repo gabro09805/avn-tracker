@@ -7,7 +7,7 @@
 **A self-hosted, privacy-first library manager for adult visual novels.**
 Track games, monitor version updates, and discover new titles — all without leaving your machine.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Go Tests](https://github.com/rleite-it/avn-tracker/actions/workflows/test.yml/badge.svg?label=Go%20Tests)](https://github.com/rleite-it/avn-tracker/actions/workflows/test.yml) [![E2E Tests](https://github.com/rleite-it/avn-tracker/actions/workflows/test.yml/badge.svg?label=E2E)](https://github.com/rleite-it/avn-tracker/actions/workflows/test.yml) [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev) [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev) [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org) [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/) [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org) [![GraphQL](https://img.shields.io/badge/GraphQL-gqlgen-E10098?logo=graphql&logoColor=white)](https://gqlgen.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Go Tests](https://github.com/gabro09805/avn-tracker/actions/workflows/test.yml/badge.svg?label=Go%20Tests)](https://github.com/gabro09805/avn-tracker/actions/workflows/test.yml) [![E2E Tests](https://github.com/gabro09805/avn-tracker/actions/workflows/test.yml/badge.svg?label=E2E)](https://github.com/gabro09805/avn-tracker/actions/workflows/test.yml) [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev) [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev) [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org) [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/) [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org) [![GraphQL](https://img.shields.io/badge/GraphQL-gqlgen-E10098?logo=graphql&logoColor=white)](https://gqlgen.com)
 
 > **Runs entirely on your machine via Docker. No accounts. No cloud. No data leaves your system.**
 
@@ -25,7 +25,9 @@ Track games, monitor version updates, and discover new titles — all without le
 
 ### 📚 Library Management
 
-- Add games manually or import directly from [VNDB](https://vndb.org) or [F95Zone](https://f95zone.to)
+- Add games manually, search [VNDB](https://vndb.org), or import directly from an [F95Zone](https://f95zone.to) thread URL
+- F95Zone games use landscape 3:2 covers in Discover and the library, with titles and categories below the image
+- Consistent confirmation dialog when removing games from either library grid or list view
 - Track play status: **Playing · Want · Completed · On Hold · Dropped**
 - Track developer status: **Ongoing · Complete · Abandoned**
 - Store cover art, download links, tags, notes, and descriptions
@@ -57,6 +59,7 @@ Track games, monitor version updates, and discover new titles — all without le
 
 - Browse and search visual novels from **VNDB** in real time
 - Browse and search adult games from **F95Zone** (requires account credentials)
+- Import a game from the library modal by pasting a direct F95Zone thread link
 - Paginated F95Zone search — navigate across multiple pages of results
 - Debounced live search — no button required
 - In-app detail pages for both VNDB and F95Zone with description, screenshots, tags, and engine info
@@ -143,7 +146,7 @@ Track games, monitor version updates, and discover new titles — all without le
 
 ```bash
 # Clone
-git clone https://github.com/rleite-it/avn-tracker.git
+git clone https://github.com/gabro09805/avn-tracker.git
 cd avn-tracker
 
 # Configure credentials (edit POSTGRES_PASSWORD to something strong)
@@ -206,7 +209,8 @@ avn-tracker/
 │       │       ├── 002_settings.up.sql  # settings k/v store
 │       │       └── 003_recommendation_links.up.sql
 │       ├── f95/
-│       │   └── scraper.go              # ⭐ F95Zone HTTP scraper (login, search, parse)
+│       │   ├── scraper.go              # ⭐ F95Zone HTTP scraper (login, search, parse)
+│       │   └── scraper_test.go         # F95 scraper tests
 │       ├── graph/
 │       │   ├── schema.graphqls          # ⭐ GraphQL schema (source of truth)
 │       │   ├── resolver.go              # root resolver (dependency injection)
@@ -230,10 +234,10 @@ avn-tracker/
         ├── components/
         │   ├── ConfirmModal.tsx         # generic confirmation modal
         │   ├── FilterBar.tsx            # status pills + search + multi-tag custom select
-        │   ├── GameCard.tsx             # grid card component
+        │   ├── GameCard.tsx             # grid card, F95 landscape covers, delete confirmation
         │   ├── GameDetailView.tsx       # ⭐ shared detail layout (library + discover)
-        │   ├── GameModal.tsx            # add/edit form (react-hook-form)
-        │   ├── GameRow.tsx              # list row component
+        │   ├── GameModal.tsx            # add/edit form, VNDB search, F95 URL import
+        │   ├── GameRow.tsx              # list row with delete confirmation
         │   ├── LinksDrawer.tsx          # ⭐ saved links side drawer
         │   ├── ScreenshotCarousel.tsx   # screenshot gallery with lightbox
         │   ├── UpdateBadge.tsx          # update available indicator
@@ -452,7 +456,7 @@ The in-app **Settings → Export** produces a portable JSON snapshot that can be
 Contributions are welcome. Please **open an issue first** for any significant change so we can align on approach.
 
 ```bash
-git clone https://github.com/rleite-it/avn-tracker.git
+git clone https://github.com/gabro09805/avn-tracker.git
 cd avn-tracker
 cp .env.example .env   # configure credentials
 docker compose up --build -d
@@ -471,11 +475,13 @@ docker compose up --build -d
 - [x] Saved links / recommendation drawer
 - [x] Multi-tag filtering in library
 - [x] F95Zone: correct DevStatus and Final version on import
+- [x] F95Zone cover image scraping and direct-link import from the library
+- [x] F95 landscape cards with titles and categories below covers
+- [x] Consistent library removal confirmation dialog in grid and list views
 - [ ] Multiple download links per game (mirrors, Patreon, itch.io)
 - [ ] Personal rating / score field
 - [ ] Mobile layout improvements
 - [ ] User-configurable adult content tag IDs
-- [ ] F95Zone cover image scraping (currently uses engine-gradient placeholder)
 
 ---
 
