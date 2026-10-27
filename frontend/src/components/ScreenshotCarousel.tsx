@@ -8,9 +8,10 @@ interface Screenshot {
 
 interface Props {
   screenshots: Screenshot[]
+  noReferrer?: boolean
 }
 
-export function ScreenshotCarousel({ screenshots }: Props) {
+export function ScreenshotCarousel({ screenshots, noReferrer = false }: Props) {
   const [current, setCurrent] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [loaded, setLoaded] = useState<Set<number>>(new Set())
@@ -118,6 +119,7 @@ export function ScreenshotCarousel({ screenshots }: Props) {
                 <img
                   src={s.url}
                   alt={`Screenshot ${i + 1}`}
+                  referrerPolicy={noReferrer ? 'no-referrer' : undefined}
                   className={`w-full h-full object-cover transition-all duration-300 ${isCenter ? 'group-hover:scale-105' : ''} ${loaded.has(i) ? 'opacity-100' : 'opacity-0'}`}
                   draggable={false}
                   loading="lazy"
@@ -213,6 +215,7 @@ export function ScreenshotCarousel({ screenshots }: Props) {
               <img
                 src={screenshots[current].url}
                 alt={`Screenshot ${current + 1}`}
+                referrerPolicy={noReferrer ? 'no-referrer' : undefined}
                 className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain"
               />
             </div>

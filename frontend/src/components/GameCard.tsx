@@ -50,6 +50,7 @@ export function GameCard({ game, onEdit }: Props) {
           <img
             src={game.coverUrl}
             alt={game.title}
+            referrerPolicy={isF95Game ? 'no-referrer' : undefined}
             className={`w-full h-full ${isF95Game ? 'object-contain' : 'object-cover group-hover:scale-105'} transition-transform duration-300`}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />

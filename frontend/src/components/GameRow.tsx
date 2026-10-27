@@ -50,6 +50,7 @@ export function GameRow({ game, onEdit }: Props) {
               <img
                 src={game.coverUrl}
                 alt=""
+                referrerPolicy={game.f95Id ? 'no-referrer' : undefined}
                 className="w-full h-full object-cover"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
               />

@@ -185,6 +185,7 @@ test.describe('Discover page', () => {
     const cover = card.getByTestId('f95-cover')
     await expect(cover).toBeVisible({ timeout: 10_000 })
     await expect(cover).toHaveAttribute('src', coverUrl)
+    await expect(cover).toHaveAttribute('referrerpolicy', 'no-referrer')
   })
 
   test('switching back to VNDB tab shows VNDB search', async ({ page }) => {

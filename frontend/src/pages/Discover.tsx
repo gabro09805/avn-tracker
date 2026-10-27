@@ -118,6 +118,7 @@ function F95Card({ item }: { item: F95SearchItem }) {
             data-testid="f95-cover"
             src={coverUrl}
             alt={item.title}
+            referrerPolicy="no-referrer"
             className="absolute inset-0 w-full h-full object-contain"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />

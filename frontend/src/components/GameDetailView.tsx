@@ -132,6 +132,7 @@ export function GameDetailView({
                 <img
                   src={coverUrl}
                   alt={title}
+                  referrerPolicy={source === "f95" ? "no-referrer" : undefined}
                   className={`w-full h-full ${source === "f95" ? "object-contain" : "object-cover"}`}
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
@@ -277,7 +278,7 @@ export function GameDetailView({
                   <h2 className="text-xs font-bold text-stone-500 dark:text-stone-500 uppercase tracking-widest mb-3">
                     Screenshots ({screenshots.length})
                   </h2>
-                  <ScreenshotCarousel screenshots={screenshots} />
+                  <ScreenshotCarousel screenshots={screenshots} noReferrer={source === "f95"} />
                 </div>
               )}
 
