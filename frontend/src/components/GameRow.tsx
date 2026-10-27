@@ -1,8 +1,10 @@
 import { ExternalLink, RefreshCw, Pencil, Trash2 } from 'lucide-react'
-import { useMutation } from '@apollo/client'
+import { useState } from 'react'
+import { useMutation, type Reference } from '@apollo/client'
 import { useNavigate } from 'react-router-dom'
 import { Game, STATUS_LABELS, STATUS_COLORS, DEV_STATUS_LABELS, DEV_STATUS_COLORS } from '../types/game'
 import { UpdateBadge } from './UpdateBadge'
+import { ConfirmModal } from './ConfirmModal'
 import { SYNC_LATEST_VERSION, DELETE_GAME } from '../graphql/mutations'
 import { GET_GAMES } from '../graphql/queries'
 
@@ -19,8 +21,21 @@ function gameDetailUrl(game: Game): string {
 
 export function GameRow({ game, onEdit }: Props) {
   const navigate = useNavigate()
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [sync, { loading: syncing }] = useMutation(SYNC_LATEST_VERSION, { refetchQueries: [GET_GAMES] })
-  const [del] = useMutation(DELETE_GAME, { refetchQueries: [GET_GAMES], variables: { id: game.id } })
+  const [del] = useMutation(DELETE_GAME, {
+    refetchQueries: [GET_GAMES],
+    variables: { id: game.id },
+    update(cache) {
+      cache.modify({
+        fields: {
+          games(existingGames = [], { readField }) {
+            return existingGames.filter((gameRef: Reference) => readField('id', gameRef) !== game.id)
+          },
+        },
+      })
+    },
+  })
 
   return (
     <tr className="border-b border-stone-100 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-800/40 transition-colors group">
@@ -129,13 +144,22 @@ export function GameRow({ game, onEdit }: Props) {
             </a>
           )}
           <button
-            onClick={() => { if (confirm(`Delete "${game.title}"?`)) del() }}
+            onClick={() => setShowDeleteModal(true)}
             className="p-1.5 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
             title="Delete"
           >
             <Trash2 size={14} />
           </button>
         </div>
+        {showDeleteModal && (
+          <ConfirmModal
+            title={`Remove "${game.title}" from library?`}
+            message="Your status, notes, and version history for this game will be lost."
+            confirmLabel="Remove"
+            onConfirm={() => { setShowDeleteModal(false); void del() }}
+            onCancel={() => setShowDeleteModal(false)}
+          />
+        )}
       </td>
     </tr>
   )

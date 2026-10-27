@@ -1,8 +1,10 @@
 import { RefreshCw, Pencil, Trash2, Download } from 'lucide-react'
-import { useMutation } from '@apollo/client'
+import { useState } from 'react'
+import { useMutation, type Reference } from '@apollo/client'
 import { useNavigate } from 'react-router-dom'
 import { Game, STATUS_LABELS, STATUS_COLORS, DEV_STATUS_COLORS, DEV_STATUS_LABELS } from '../types/game'
 import { UpdateBadge } from './UpdateBadge'
+import { ConfirmModal } from './ConfirmModal'
 import { SYNC_LATEST_VERSION, DELETE_GAME } from '../graphql/mutations'
 import { GET_GAMES } from '../graphql/queries'
 
@@ -19,21 +21,36 @@ function gameDetailUrl(game: Game): string {
 
 export function GameCard({ game, onEdit }: Props) {
   const navigate = useNavigate()
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const isF95Game = Boolean(game.f95Id)
   const [sync, { loading: syncing }] = useMutation(SYNC_LATEST_VERSION, { refetchQueries: [GET_GAMES] })
-  const [del] = useMutation(DELETE_GAME, { refetchQueries: [GET_GAMES], variables: { id: game.id } })
+  const [del] = useMutation(DELETE_GAME, {
+    refetchQueries: [GET_GAMES],
+    variables: { id: game.id },
+    update(cache) {
+      cache.modify({
+        fields: {
+          games(existingGames = [], { readField }) {
+            return existingGames.filter((gameRef: Reference) => readField('id', gameRef) !== game.id)
+          },
+        },
+      })
+    },
+  })
 
   return (
-    <div data-testid="game-card" className="group relative flex flex-col bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-stone-300 dark:hover:border-stone-700 transition-all duration-200">
+    <>
+      <div data-testid="game-card" className="group relative flex flex-col bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-stone-300 dark:hover:border-stone-700 transition-all duration-200">
       {/* Cover */}
       <div
-        className="relative aspect-[2/3] bg-stone-100 dark:bg-stone-800 overflow-hidden cursor-pointer"
+        className={`relative ${isF95Game ? 'aspect-[3/2]' : 'aspect-[2/3]'} bg-stone-100 dark:bg-stone-800 overflow-hidden cursor-pointer`}
         onClick={() => navigate(gameDetailUrl(game))}
       >
         {game.coverUrl ? (
           <img
             src={game.coverUrl}
             alt={game.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className={`w-full h-full ${isF95Game ? 'object-contain' : 'object-cover group-hover:scale-105'} transition-transform duration-300`}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
         ) : (
@@ -80,7 +97,7 @@ export function GameCard({ game, onEdit }: Props) {
             </a>
           )}
           <button
-            onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${game.title}"?`)) del() }}
+            onClick={(e) => { e.stopPropagation(); setShowDeleteModal(true) }}
             className="p-2 bg-rose-500/90 rounded-lg text-white hover:bg-rose-500 shadow-sm"
             title="Delete"
           >
@@ -151,6 +168,16 @@ export function GameCard({ game, onEdit }: Props) {
           </div>
         )}
       </div>
-    </div>
+      </div>
+      {showDeleteModal && (
+        <ConfirmModal
+          title={`Remove "${game.title}" from library?`}
+          message="Your status, notes, and version history for this game will be lost."
+          confirmLabel="Remove"
+          onConfirm={() => { setShowDeleteModal(false); void del() }}
+          onCancel={() => setShowDeleteModal(false)}
+        />
+      )}
+    </>
   )
 }

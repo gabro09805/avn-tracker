@@ -126,6 +126,67 @@ test.describe('Discover page', () => {
     await expect(page.getByText('Type to search F95Zone games')).toBeVisible()
   })
 
+  test('F95 search cards load their cover from game details', async ({ page }) => {
+    const coverUrl = 'https://img.test/f95-cover.gif'
+    await page.route('https://img.test/**', route => route.fulfill({
+      status: 200,
+      contentType: 'image/gif',
+      body: Buffer.from('R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=', 'base64'),
+    }))
+    await page.route('**/graphql', async route => {
+      const { operationName } = route.request().postDataJSON()
+      if (operationName === 'SearchF95') {
+        await route.fulfill({
+          json: {
+            data: {
+              searchF95: {
+                results: [{
+                  threadId: '12345',
+                  threadUrl: 'https://f95zone.to/threads/test-game.12345/',
+                  title: 'Test Game',
+                  version: '1.0',
+                  engine: 'RenPy',
+                  tags: [],
+                }],
+                totalPages: 1,
+              },
+            },
+          },
+        })
+      } else if (operationName === 'GetF95Game') {
+        await route.fulfill({
+          json: {
+            data: {
+              getF95Game: {
+                threadId: '12345',
+                threadUrl: 'https://f95zone.to/threads/test-game.12345/',
+                title: 'Test Game',
+                developer: '',
+                version: '1.0',
+                coverUrl,
+                description: '',
+                tags: [],
+                engine: 'RenPy',
+                f95Status: 'Ongoing',
+                screenshots: [],
+              },
+            },
+          },
+        })
+      } else {
+        await route.continue()
+      }
+    })
+
+    await page.goto('/discover?tab=f95')
+    await page.getByPlaceholder(/Search games on F95Zone/).fill('test game')
+
+    const card = page.getByTestId('f95-card')
+    const cover = card.getByTestId('f95-cover')
+    await expect(cover).toBeVisible({ timeout: 10_000 })
+    await expect(cover).toHaveAttribute('src', coverUrl)
+  })
+
   test('switching back to VNDB tab shows VNDB search', async ({ page }) => {
     await page.goto('/discover')
     await page.getByRole('button', { name: 'F95Zone' }).click()

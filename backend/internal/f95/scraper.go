@@ -1,8 +1,8 @@
 package f95
 
 import (
-	stdhtml "html"
 	"context"
+	stdhtml "html"
 	"regexp"
 	"strings"
 	"time"
@@ -149,7 +149,6 @@ func (c *Client) GetGame(ctx context.Context, threadURL string) (*Game, error) {
 	// --- Screenshots: all img.bbImage except cover, up to 30 ---
 	screenshots := extractScreenshots(postBody, coverURL)
 
-
 	return &Game{
 		ThreadID:    threadID,
 		ThreadURL:   threadURL,
@@ -172,7 +171,7 @@ func extractCoverURL(postBody *goquery.Selection) string {
 	// First img.bbImage[data-src] is the banner — full-size, no /thumb/.
 	coverURL := ""
 	postBody.Find("img.bbImage").EachWithBreak(func(_ int, img *goquery.Selection) bool {
-		if src, ok := img.Attr("data-src"); ok && isFullURL(src) {
+		if src := imageURL(img); src != "" {
 			coverURL = thumbToFullSize(src)
 			return false
 		}
@@ -183,8 +182,8 @@ func extractCoverURL(postBody *goquery.Selection) string {
 	}
 	// Fallback: lbContainer-zoomer (lightbox full-size anchor).
 	postBody.Find(".lbContainer-zoomer").EachWithBreak(func(_ int, z *goquery.Selection) bool {
-		if src, ok := z.Attr("data-src"); ok && isFullURL(src) {
-			coverURL = src
+		if src := imageURL(z); src != "" {
+			coverURL = thumbToFullSize(src)
 			return false
 		}
 		return true
@@ -277,24 +276,39 @@ func extractScreenshots(postBody *goquery.Selection, coverURL string) []string {
 	var screenshots []string
 
 	postBody.Find("img.bbImage").Each(func(_ int, img *goquery.Selection) {
-		src := img.AttrOr("data-src", "")
-		if src == "" || !isFullURL(src) {
-			return
-		}
-		full := thumbToFullSize(src)
-		if seen[full] {
-			return
-		}
-		seen[full] = true
-		if len(screenshots) < 30 {
-			screenshots = append(screenshots, full)
-		}
+		addScreenshot(imageURL(img), &screenshots, seen)
+	})
+	postBody.Find(".lbContainer-zoomer").Each(func(_ int, zoomer *goquery.Selection) {
+		addScreenshot(imageURL(zoomer), &screenshots, seen)
 	})
 
 	if screenshots == nil {
 		screenshots = []string{}
 	}
 	return screenshots
+}
+
+func addScreenshot(src string, screenshots *[]string, seen map[string]bool) {
+	if src == "" {
+		return
+	}
+	full := thumbToFullSize(src)
+	if seen[full] {
+		return
+	}
+	seen[full] = true
+	if len(*screenshots) < 30 {
+		*screenshots = append(*screenshots, full)
+	}
+}
+
+func imageURL(el *goquery.Selection) string {
+	for _, attr := range []string{"data-src", "data-url", "href", "src"} {
+		if value, ok := el.Attr(attr); ok && isFullURL(value) {
+			return value
+		}
+	}
+	return ""
 }
 
 // thumbToFullSize converts an F95Zone thumbnail URL to its full-size equivalent

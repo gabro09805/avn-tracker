@@ -127,12 +127,12 @@ export function GameDetailView({
         <div className="grid grid-cols-1 md:grid-cols-[16rem_1fr] gap-8">
           {/* Sidebar */}
           <div>
-            <div className="w-full aspect-2/3 bg-stone-100 dark:bg-stone-800 rounded-2xl overflow-hidden shadow-lg">
+            <div className={`w-full ${source === "f95" ? "aspect-[16/9]" : "aspect-2/3"} bg-stone-100 dark:bg-stone-800 rounded-2xl overflow-hidden shadow-lg`}>
               {coverUrl ? (
                 <img
                   src={coverUrl}
                   alt={title}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full ${source === "f95" ? "object-contain" : "object-cover"}`}
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}

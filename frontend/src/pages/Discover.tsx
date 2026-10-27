@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLazyQuery } from '@apollo/client'
 import { Search, Loader2, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { SEARCH_VNDB, SEARCH_F95 } from '../graphql/queries'
+import { GET_F95_GAME, SEARCH_VNDB, SEARCH_F95 } from '../graphql/queries'
 import { VNDBResult, VNDBPage, F95SearchItem, F95SearchResult } from '../types/game'
 
 // ─── VNDB card ───────────────────────────────────────────────────────────────
@@ -77,6 +77,24 @@ function engineGradient(engine: string): string {
 
 function F95Card({ item }: { item: F95SearchItem }) {
   const navigate = useNavigate()
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [loadGame, { data: gameData }] = useLazyQuery<{ getF95Game: { coverUrl: string } }>(GET_F95_GAME)
+  const coverUrl = gameData?.getF95Game.coverUrl ?? ''
+
+  useEffect(() => {
+    const card = cardRef.current
+    if (!card || coverUrl) return
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        void loadGame({ variables: { threadUrl: item.threadUrl } })
+        observer.disconnect()
+      }
+    }, { rootMargin: '250px' })
+
+    observer.observe(card)
+    return () => observer.disconnect()
+  }, [coverUrl, item.threadUrl, loadGame])
 
   const statusTag = item.tags.find(t => F95_STATUS_COLORS[t.toLowerCase()])
   const typeTag = item.tags.find(t => CONTENT_TYPE_LABELS.has(t.toLowerCase()))
@@ -88,19 +106,26 @@ function F95Card({ item }: { item: F95SearchItem }) {
 
   return (
     <div
+      ref={cardRef}
       data-testid="f95-card"
       className="group bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:border-stone-300 dark:hover:border-stone-700 transition-all duration-200 cursor-pointer"
       onClick={() => navigate(`/discover/f95/${encodeURIComponent(item.threadUrl)}`)}
     >
       {/* Cover placeholder — gradient based on engine, letter initial */}
-      <div className={`relative aspect-2/3 bg-linear-to-br ${engineGradient(item.engine)} overflow-hidden`}>
-        {/* Faint initial watermark */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-8xl font-black text-white/10 select-none">{initial}</span>
-        </div>
-
-        {/* Bottom gradient overlay */}
-        <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/30 to-transparent" />
+      <div className={`relative aspect-[3/2] bg-linear-to-br ${engineGradient(item.engine)} overflow-hidden`}>
+        {coverUrl ? (
+          <img
+            data-testid="f95-cover"
+            src={coverUrl}
+            alt={item.title}
+            className="absolute inset-0 w-full h-full object-contain"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-8xl font-black text-white/10 select-none">{initial}</span>
+          </div>
+        )}
 
         {/* Engine badge — top left */}
         {item.engine && (
@@ -120,37 +145,30 @@ function F95Card({ item }: { item: F95SearchItem }) {
           </div>
         )}
 
-        {/* Content tags on hover */}
-        {contentTags.length > 0 && (
-          <div className="absolute top-8 left-2 right-2 flex flex-wrap gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            {contentTags.slice(0, 3).map(tag => (
-              <span key={tag} className="text-xs px-1.5 py-0.5 bg-black/60 backdrop-blur-sm text-white/90 rounded-md font-medium">
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+      </div>
 
-        {/* Bottom: status/type + title */}
-        <div className="absolute bottom-0 left-0 right-0 p-3">
-          <div className="flex flex-wrap gap-1 mb-1.5">
-            {statusTag && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-md font-semibold border ${F95_STATUS_COLORS[statusTag.toLowerCase()]}`}>
-                {statusTag}
-              </span>
-            )}
-            {!statusTag && (
-              <span className="text-xs px-1.5 py-0.5 rounded-md font-medium bg-cyan-100/90 dark:bg-cyan-900/80 text-cyan-700 dark:text-cyan-300 border border-cyan-200/80 dark:border-cyan-700/80">
-                Ongoing
-              </span>
-            )}
-            {typeTag && (
-              <span className="text-xs px-1.5 py-0.5 bg-sky-100/90 dark:bg-sky-900/80 text-sky-700 dark:text-sky-300 rounded-md font-medium border border-sky-200/80 dark:border-sky-700/80">
-                {typeTag}
-              </span>
-            )}
-          </div>
-          <p className="text-white text-xs font-bold leading-tight line-clamp-2 drop-shadow">{item.title}</p>
+      <div className="flex flex-col gap-2 p-3">
+        <p className="text-sm font-bold leading-snug line-clamp-2 text-stone-900 dark:text-stone-100">{item.title}</p>
+        <div className="flex flex-wrap gap-1">
+          {statusTag ? (
+            <span className={`text-xs px-1.5 py-0.5 rounded-md font-semibold border ${F95_STATUS_COLORS[statusTag.toLowerCase()]}`}>
+              {statusTag}
+            </span>
+          ) : (
+            <span className="text-xs px-1.5 py-0.5 rounded-md font-medium bg-cyan-100 dark:bg-cyan-900/80 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-700/80">
+              Ongoing
+            </span>
+          )}
+          {typeTag && (
+            <span className="text-xs px-1.5 py-0.5 bg-sky-100 dark:bg-sky-900/80 text-sky-700 dark:text-sky-300 rounded-md font-medium border border-sky-200 dark:border-sky-700/80">
+              {typeTag}
+            </span>
+          )}
+          {contentTags.slice(0, 3).map(tag => (
+            <span key={tag} className="text-xs px-1.5 py-0.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-md font-medium">
+              {tag}
+            </span>
+          ))}
         </div>
       </div>
     </div>

@@ -48,6 +48,70 @@ test.describe('Library page', () => {
     await expect(page.getByText(game.title)).toBeVisible()
   })
 
+  test('removing an F95 game updates its library state in Discover', async ({ page, request }) => {
+    const threadUrl = 'https://f95zone.to/threads/test-game.12345/'
+    await createTestGame(request, { title: '[E2E] F95 Game', f95Id: '12345' })
+
+    await page.route('**/graphql', async route => {
+      const { operationName } = route.request().postDataJSON()
+      if (operationName === 'SearchF95') {
+        await route.fulfill({
+          json: {
+            data: {
+              searchF95: {
+                results: [{
+                  threadId: '12345',
+                  threadUrl,
+                  title: '[E2E] F95 Game',
+                  version: '1.0',
+                  engine: 'RenPy',
+                  tags: [],
+                }],
+                totalPages: 1,
+              },
+            },
+          },
+        })
+      } else if (operationName === 'GetF95Game') {
+        await route.fulfill({
+          json: {
+            data: {
+              getF95Game: {
+                threadId: '12345',
+                threadUrl,
+                title: '[E2E] F95 Game',
+                developer: '',
+                version: '1.0',
+                coverUrl: '',
+                description: '',
+                tags: [],
+                engine: 'RenPy',
+                f95Status: 'Ongoing',
+                screenshots: [],
+              },
+            },
+          },
+        })
+      } else {
+        await route.continue()
+      }
+    })
+
+    await page.goto('/')
+    const card = page.locator(CARD).filter({ hasText: '[E2E] F95 Game' })
+    await card.getByTitle('Delete').click()
+    await expect(page.getByText('Remove "[E2E] F95 Game" from library?')).toBeVisible()
+    await page.getByRole('button', { name: 'Remove', exact: true }).click()
+    await expect(card).toHaveCount(0)
+
+    await page.getByRole('link', { name: 'Discover' }).click()
+    await page.getByRole('button', { name: 'F95Zone' }).click()
+    await page.getByPlaceholder(/Search games on F95Zone/).fill('test game')
+    await page.locator('[data-testid="f95-card"]').click()
+
+    await expect(page.getByRole('button', { name: 'Add to Library' })).toBeVisible()
+  })
+
   test('shows update badge when versions differ', async ({ page, request }) => {
     await createTestGame(request, { myVersion: '0.5.0', latestVersion: '1.0.0' })
     await page.goto('/')
@@ -177,9 +241,24 @@ test.describe('Library page', () => {
     await card.hover()
     await page.waitForTimeout(300)
 
-    page.once('dialog', d => d.accept())
     await card.getByTitle('Delete').click()
+    await expect(page.getByText(`Remove "${game.title}" from library?`)).toBeVisible()
+    await page.getByRole('button', { name: 'Remove', exact: true }).click()
 
     await expect(page.locator(CARD).filter({ hasText: game.title })).not.toBeVisible()
+  })
+
+  test('delete game in list view uses the same confirmation modal', async ({ page, request }) => {
+    const game = await createTestGame(request)
+    await page.goto('/')
+    await page.getByTitle('List').click()
+
+    const row = page.locator('tbody tr').filter({ hasText: game.title })
+    await row.hover()
+    await row.getByTitle('Delete').click()
+
+    await expect(page.getByText(`Remove "${game.title}" from library?`)).toBeVisible()
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await expect(row).toBeVisible()
   })
 })

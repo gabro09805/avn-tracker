@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { useForm } from 'react-hook-form'
 import { useMutation } from '@apollo/client'
-import { X, ArrowLeft } from 'lucide-react'
+import { X, ArrowLeft, Loader2 } from 'lucide-react'
 import { Game, GameInput, GameStatus, DevStatus } from '../types/game'
-import { ADD_GAME, UPDATE_GAME } from '../graphql/mutations'
+import { ADD_GAME, IMPORT_FROM_F95, UPDATE_GAME } from '../graphql/mutations'
 import { GET_GAMES } from '../graphql/queries'
 import { VNDBSearchInline } from './VNDBSearchInline'
 
@@ -33,7 +33,9 @@ const labelCls = 'block text-xs font-semibold text-stone-600 dark:text-stone-400
 
 export function GameModal({ game, onClose }: Props) {
   useScrollLock()
-  const [tab, setTab] = useState<'manual' | 'vndb'>('manual')
+  const [tab, setTab] = useState<'manual' | 'vndb' | 'f95'>('manual')
+  const [f95Url, setF95Url] = useState('')
+  const [f95Error, setF95Error] = useState('')
   const isEdit = !!game
 
   const { register, handleSubmit, reset, watch, setValue, getValues } = useForm<FormValues>({
@@ -64,6 +66,37 @@ export function GameModal({ game, onClose }: Props) {
 
   const [addGame] = useMutation(ADD_GAME, { refetchQueries: [GET_GAMES] })
   const [updateGame] = useMutation(UPDATE_GAME, { refetchQueries: [GET_GAMES] })
+  const [importFromF95, { loading: importingF95 }] = useMutation(IMPORT_FROM_F95, {
+    refetchQueries: [GET_GAMES],
+  })
+
+  const onImportFromF95 = async () => {
+    const url = f95Url.trim()
+    let parsedUrl: URL
+    try {
+      parsedUrl = new URL(url)
+    } catch {
+      setF95Error('Enter a valid F95Zone thread URL.')
+      return
+    }
+
+    if (
+      !['http:', 'https:'].includes(parsedUrl.protocol) ||
+      !['f95zone.to', 'www.f95zone.to'].includes(parsedUrl.hostname.toLowerCase()) ||
+      !/^\/threads\/(?:[^/]*\.)?\d+\/?$/.test(parsedUrl.pathname)
+    ) {
+      setF95Error('Enter a direct link to an F95Zone thread.')
+      return
+    }
+
+    setF95Error('')
+    try {
+      await importFromF95({ variables: { threadUrl: url } })
+      onClose()
+    } catch (error) {
+      setF95Error(error instanceof Error ? error.message : String(error))
+    }
+  }
 
   const onSubmit = async (values: FormValues) => {
     const tags = values.tagsRaw.split(',').map(t => t.trim()).filter(Boolean)
@@ -105,7 +138,7 @@ export function GameModal({ game, onClose }: Props) {
         {/* Tabs */}
         {!isEdit && (
           <div className="flex border-b border-stone-100 dark:border-stone-800 shrink-0 px-6">
-            {(['manual', 'vndb'] as const).map(t => (
+            {(['manual', 'vndb', 'f95'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -115,7 +148,7 @@ export function GameModal({ game, onClose }: Props) {
                     : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
                 }`}
               >
-                {t === 'manual' ? 'Manual' : 'Search VNDB'}
+                {t === 'manual' ? 'Manual' : t === 'vndb' ? 'Search VNDB' : 'F95Zone link'}
               </button>
             ))}
           </div>
@@ -125,6 +158,35 @@ export function GameModal({ game, onClose }: Props) {
         <div className="overflow-y-auto flex-1 px-6 py-5">
           {!isEdit && tab === 'vndb' ? (
             <VNDBSearchInline onImported={onClose} />
+          ) : !isEdit && tab === 'f95' ? (
+            <div className="space-y-3">
+              <p className="text-sm text-stone-500 dark:text-stone-400">
+                Paste a direct link to an F95Zone game thread. Your F95Zone account must be configured in Settings.
+              </p>
+              <input
+                type="url"
+                value={f95Url}
+                onChange={event => { setF95Url(event.target.value); setF95Error('') }}
+                onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void onImportFromF95() } }}
+                placeholder="https://f95zone.to/threads/game-name.12345/"
+                className={inputCls}
+                aria-label="F95Zone thread URL"
+              />
+              {f95Error && (
+                <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{f95Error}</p>
+              )}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void onImportFromF95()}
+                  disabled={importingF95 || !f95Url.trim()}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-xl text-white flex items-center gap-2 text-sm font-semibold transition-colors"
+                >
+                  {importingF95 && <Loader2 size={15} className="animate-spin" />}
+                  {importingF95 ? 'Importing…' : 'Import from F95Zone'}
+                </button>
+              </div>
+            </div>
           ) : (
             <form id="game-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
